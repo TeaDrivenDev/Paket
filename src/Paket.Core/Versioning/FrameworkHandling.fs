@@ -5,6 +5,7 @@ open System
 open System.Diagnostics
 open Logging
 
+type ToolingVersion = Tooling1_0 | Tooling2_0
 
 /// The .NET Standard version.
 // Each time a new version is added NuGetPackageCache.CurrentCacheVersion should be bumped.
@@ -529,10 +530,10 @@ type FrameworkIdentifier =
         | Tizen v -> "tizen" + v.ShortString()
 
 
-    member internal x.RawSupportedPlatformsTransitive =
+    member internal x.RawSupportedPlatformsTransitive sdkType =
         let findNewPlats (known:FrameworkIdentifier list) (lastStep:FrameworkIdentifier list) =
             lastStep
-            |> List.collect (fun k -> k.RawSupportedPlatforms)
+            |> List.collect (fun k -> k.RawSupportedPlatforms sdkType)
             |> List.filter (fun k -> known |> Seq.contains k |> not)
 
         Seq.initInfinite (fun _ -> 1)
@@ -549,88 +550,91 @@ type FrameworkIdentifier =
         |> fst
 
     // returns a list of compatible platforms that this platform also supports
-    member internal x.RawSupportedPlatforms =
-        match x with
-        | MonoAndroid MonoAndroidVersion.V1 -> []
-        | MonoAndroid MonoAndroidVersion.V2_2 -> [ MonoAndroid MonoAndroidVersion.V1 ]
-        | MonoAndroid MonoAndroidVersion.V2_3 -> [ MonoAndroid MonoAndroidVersion.V2_2 ]
-        | MonoAndroid MonoAndroidVersion.V4_0_3 -> [ MonoAndroid MonoAndroidVersion.V2_3 ]
-        | MonoAndroid MonoAndroidVersion.V4_1 -> [ MonoAndroid MonoAndroidVersion.V4_0_3 ]
-        | MonoAndroid MonoAndroidVersion.V4_2 -> [ MonoAndroid MonoAndroidVersion.V4_1 ]
-        | MonoAndroid MonoAndroidVersion.V4_3 -> [ MonoAndroid MonoAndroidVersion.V4_2 ]
-        | MonoAndroid MonoAndroidVersion.V4_4 -> [ MonoAndroid MonoAndroidVersion.V4_3 ]
+    member internal x.RawSupportedPlatforms sdkType =
+        match x, sdkType with
+        | MonoAndroid MonoAndroidVersion.V1, _ -> []
+        | MonoAndroid MonoAndroidVersion.V2_2, _ -> [ MonoAndroid MonoAndroidVersion.V1 ]
+        | MonoAndroid MonoAndroidVersion.V2_3, _ -> [ MonoAndroid MonoAndroidVersion.V2_2 ]
+        | MonoAndroid MonoAndroidVersion.V4_0_3, _ -> [ MonoAndroid MonoAndroidVersion.V2_3 ]
+        | MonoAndroid MonoAndroidVersion.V4_1, _ -> [ MonoAndroid MonoAndroidVersion.V4_0_3 ]
+        | MonoAndroid MonoAndroidVersion.V4_2, _ -> [ MonoAndroid MonoAndroidVersion.V4_1 ]
+        | MonoAndroid MonoAndroidVersion.V4_3, _ -> [ MonoAndroid MonoAndroidVersion.V4_2 ]
+        | MonoAndroid MonoAndroidVersion.V4_4, _ -> [ MonoAndroid MonoAndroidVersion.V4_3 ]
         //https://stackoverflow.com/questions/28170345/what-exactly-is-android-4-4w-vs-4-4-and-what-about-5-0-1
         //| MonoAndroid MonoAndroidVersion.V44W -> [ MonoAndroid MonoAndroidVersion.V44 ]
-        | MonoAndroid MonoAndroidVersion.V5 -> [ MonoAndroid MonoAndroidVersion.V4_4]
-        | MonoAndroid MonoAndroidVersion.V5_1 -> [ MonoAndroid MonoAndroidVersion.V5 ]
-        | MonoAndroid MonoAndroidVersion.V6 -> [ MonoAndroid MonoAndroidVersion.V5_1 ]
-        | MonoAndroid MonoAndroidVersion.V7 -> [ MonoAndroid MonoAndroidVersion.V6; DotNetStandard DotNetStandardVersion.V1_6 ]
-        | MonoAndroid MonoAndroidVersion.V7_1 -> [ MonoAndroid MonoAndroidVersion.V7 ]
-        | MonoAndroid MonoAndroidVersion.V8 -> [ MonoAndroid MonoAndroidVersion.V7_1 ]
-        | MonoAndroid MonoAndroidVersion.V8_1 -> [ MonoAndroid MonoAndroidVersion.V8 ]
-        | MonoTouch -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | MonoMac -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | Native(_) -> [ ]
-        | XamariniOS -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | XamarinMac -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | XamarinTV -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | XamarinWatch -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | UAP UAPVersion.V10 -> [ Windows WindowsVersion.V8_1; WindowsPhoneApp WindowsPhoneAppVersion.V8_1; DotNetStandard DotNetStandardVersion.V1_4  ]
-        | UAP UAPVersion.V10_0_15138 -> [ UAP UAPVersion.V10 ]
-        | UAP UAPVersion.V10_0_16299 -> [ UAP UAPVersion.V10; DotNetStandard DotNetStandardVersion.V2_0 ]
-        | UAP UAPVersion.V10_0_16300 -> [ UAP UAPVersion.V10; DotNetStandard DotNetStandardVersion.V2_0 ]
-        | UAP UAPVersion.V10_1 -> [ UAP UAPVersion.V10_0_15138 ]
-        | DotNetFramework FrameworkVersion.V1 -> [ ]
-        | DotNetFramework FrameworkVersion.V1_1 -> [ DotNetFramework FrameworkVersion.V1 ]
-        | DotNetFramework FrameworkVersion.V2 -> [ DotNetFramework FrameworkVersion.V1_1 ]
-        | DotNetFramework FrameworkVersion.V3 -> [ DotNetFramework FrameworkVersion.V2 ]
-        | DotNetFramework FrameworkVersion.V3_5 -> [ DotNetFramework FrameworkVersion.V3 ]
-        | DotNetFramework FrameworkVersion.V4 -> [ DotNetFramework FrameworkVersion.V3_5 ]
-        | DotNetFramework FrameworkVersion.V4_0_3 -> [ DotNetFramework FrameworkVersion.V4 ]
-        | DotNetFramework FrameworkVersion.V4_5 -> [ DotNetFramework FrameworkVersion.V4_0_3; DotNetStandard DotNetStandardVersion.V1_1 ]
-        | DotNetFramework FrameworkVersion.V4_5_1 -> [ DotNetFramework FrameworkVersion.V4_5; DotNetStandard DotNetStandardVersion.V1_2 ]
-        | DotNetFramework FrameworkVersion.V4_5_2 -> [ DotNetFramework FrameworkVersion.V4_5_1; DotNetStandard DotNetStandardVersion.V1_2 ]
-        | DotNetFramework FrameworkVersion.V4_5_3 -> [ DotNetFramework FrameworkVersion.V4_5_2; DotNetStandard DotNetStandardVersion.V1_2 ]
-        | DotNetFramework FrameworkVersion.V4_6 -> [ DotNetFramework FrameworkVersion.V4_5_3; DotNetStandard DotNetStandardVersion.V1_3 ]
-        | DotNetFramework FrameworkVersion.V4_6_1 -> [ DotNetFramework FrameworkVersion.V4_6; DotNetStandard DotNetStandardVersion.V1_4 ]
-        | DotNetFramework FrameworkVersion.V4_6_2 -> [ DotNetFramework FrameworkVersion.V4_6_1; DotNetStandard DotNetStandardVersion.V1_5 ]
-        | DotNetFramework FrameworkVersion.V4_6_3 -> [ DotNetFramework FrameworkVersion.V4_6_2 ]
-        | DotNetFramework FrameworkVersion.V4_7 -> [ DotNetFramework FrameworkVersion.V4_6_3]
-        | DotNetFramework FrameworkVersion.V4_7_1 -> [ DotNetFramework FrameworkVersion.V4_7; DotNetStandard DotNetStandardVersion.V2_0 ]
-        | DotNetFramework FrameworkVersion.V4_7_2 -> [ DotNetFramework FrameworkVersion.V4_7_1 ]
-        | DotNetFramework FrameworkVersion.V5_0 -> [ DotNetFramework FrameworkVersion.V4_7_2 ]
-        | DNX _ -> [ ]
-        | DNXCore _ -> [ ]
-        | DotNetStandard DotNetStandardVersion.V1_0 -> [  ]
-        | DotNetStandard DotNetStandardVersion.V1_1 -> [ DotNetStandard DotNetStandardVersion.V1_0 ]
-        | DotNetStandard DotNetStandardVersion.V1_2 -> [ DotNetStandard DotNetStandardVersion.V1_1 ]
-        | DotNetStandard DotNetStandardVersion.V1_3 -> [ DotNetStandard DotNetStandardVersion.V1_2 ]
-        | DotNetStandard DotNetStandardVersion.V1_4 -> [ DotNetStandard DotNetStandardVersion.V1_3 ]
-        | DotNetStandard DotNetStandardVersion.V1_5 -> [ DotNetStandard DotNetStandardVersion.V1_4 ]
-        | DotNetStandard DotNetStandardVersion.V1_6 -> [ DotNetStandard DotNetStandardVersion.V1_5 ]
-        | DotNetStandard DotNetStandardVersion.V2_0 -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | DotNetCoreApp DotNetCoreAppVersion.V1_0 -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | DotNetCoreApp DotNetCoreAppVersion.V1_1 -> [ DotNetCoreApp DotNetCoreAppVersion.V1_0 ]
-        | DotNetCoreApp DotNetCoreAppVersion.V2_0 -> [ DotNetCoreApp DotNetCoreAppVersion.V1_1;  DotNetStandard DotNetStandardVersion.V2_0 ]
-        | DotNetCoreApp DotNetCoreAppVersion.V2_1 -> [ DotNetCoreApp DotNetCoreAppVersion.V1_1;  DotNetStandard DotNetStandardVersion.V2_0 ]
-        | DotNetUnity DotNetUnityVersion.V3_5_Full -> [ ]
-        | DotNetUnity DotNetUnityVersion.V3_5_Subset -> [ ]
-        | DotNetUnity DotNetUnityVersion.V3_5_Micro -> [ ]
-        | DotNetUnity DotNetUnityVersion.V3_5_Web -> [ ]
-        | Silverlight SilverlightVersion.V3 -> [ ]
-        | Silverlight SilverlightVersion.V4 -> [ Silverlight SilverlightVersion.V3 ]
-        | Silverlight SilverlightVersion.V5 -> [ Silverlight SilverlightVersion.V4 ]
-        | Windows WindowsVersion.V8 -> [ ]
-        | Windows WindowsVersion.V8_1 -> [ Windows WindowsVersion.V8 ]
-        | Windows WindowsVersion.V10 -> [ Windows WindowsVersion.V8_1 ]
-        | WindowsPhoneApp WindowsPhoneAppVersion.V8_1 -> [ DotNetStandard DotNetStandardVersion.V1_2 ]
-        | WindowsPhone WindowsPhoneVersion.V7 -> [ ]
-        | WindowsPhone WindowsPhoneVersion.V7_1 -> [ WindowsPhone WindowsPhoneVersion.V7 ]
-        | WindowsPhone WindowsPhoneVersion.V7_5 -> [ WindowsPhone WindowsPhoneVersion.V7_1 ]
-        | WindowsPhone WindowsPhoneVersion.V8 -> [ WindowsPhone WindowsPhoneVersion.V7_5; DotNetStandard DotNetStandardVersion.V1_0 ]
-        | WindowsPhone WindowsPhoneVersion.V8_1 -> [ WindowsPhone WindowsPhoneVersion.V8 ]
-        | Tizen TizenVersion.V3 -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
-        | Tizen TizenVersion.V4 -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | MonoAndroid MonoAndroidVersion.V5, _ -> [ MonoAndroid MonoAndroidVersion.V4_4]
+        | MonoAndroid MonoAndroidVersion.V5_1, _ -> [ MonoAndroid MonoAndroidVersion.V5 ]
+        | MonoAndroid MonoAndroidVersion.V6, _ -> [ MonoAndroid MonoAndroidVersion.V5_1 ]
+        | MonoAndroid MonoAndroidVersion.V7, _ -> [ MonoAndroid MonoAndroidVersion.V6; DotNetStandard DotNetStandardVersion.V1_6 ]
+        | MonoAndroid MonoAndroidVersion.V7_1, _ -> [ MonoAndroid MonoAndroidVersion.V7 ]
+        | MonoAndroid MonoAndroidVersion.V8, _ -> [ MonoAndroid MonoAndroidVersion.V7_1 ]
+        | MonoAndroid MonoAndroidVersion.V8_1, _ -> [ MonoAndroid MonoAndroidVersion.V8 ]
+        | MonoTouch, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | MonoMac, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | Native(_), _ -> [ ]
+        | XamariniOS, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | XamarinMac, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | XamarinTV, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | XamarinWatch, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | UAP UAPVersion.V10, _ -> [ Windows WindowsVersion.V8_1; WindowsPhoneApp WindowsPhoneAppVersion.V8_1; DotNetStandard DotNetStandardVersion.V1_4  ]
+        | UAP UAPVersion.V10_0_15138, _ -> [ UAP UAPVersion.V10 ]
+        | UAP UAPVersion.V10_0_16299, _ -> [ UAP UAPVersion.V10; DotNetStandard DotNetStandardVersion.V2_0 ]
+        | UAP UAPVersion.V10_0_16300, _ -> [ UAP UAPVersion.V10; DotNetStandard DotNetStandardVersion.V2_0 ]
+        | UAP UAPVersion.V10_1, _ -> [ UAP UAPVersion.V10_0_15138 ]
+        | DotNetFramework FrameworkVersion.V1, _ -> [ ]
+        | DotNetFramework FrameworkVersion.V1_1, _ -> [ DotNetFramework FrameworkVersion.V1 ]
+        | DotNetFramework FrameworkVersion.V2, _ -> [ DotNetFramework FrameworkVersion.V1_1 ]
+        | DotNetFramework FrameworkVersion.V3, _ -> [ DotNetFramework FrameworkVersion.V2 ]
+        | DotNetFramework FrameworkVersion.V3_5, _ -> [ DotNetFramework FrameworkVersion.V3 ]
+        | DotNetFramework FrameworkVersion.V4, _ -> [ DotNetFramework FrameworkVersion.V3_5 ]
+        | DotNetFramework FrameworkVersion.V4_0_3, _ -> [ DotNetFramework FrameworkVersion.V4 ]
+        | DotNetFramework FrameworkVersion.V4_5, _ -> [ DotNetFramework FrameworkVersion.V4_0_3; DotNetStandard DotNetStandardVersion.V1_1 ]
+        | DotNetFramework FrameworkVersion.V4_5_1, _ -> [ DotNetFramework FrameworkVersion.V4_5; DotNetStandard DotNetStandardVersion.V1_2 ]
+        | DotNetFramework FrameworkVersion.V4_5_2, _ -> [ DotNetFramework FrameworkVersion.V4_5_1; DotNetStandard DotNetStandardVersion.V1_2 ]
+        | DotNetFramework FrameworkVersion.V4_5_3, _ -> [ DotNetFramework FrameworkVersion.V4_5_2; DotNetStandard DotNetStandardVersion.V1_2 ]
+        | DotNetFramework FrameworkVersion.V4_6, _ -> [ DotNetFramework FrameworkVersion.V4_5_3; DotNetStandard DotNetStandardVersion.V1_3 ]
+        | DotNetFramework FrameworkVersion.V4_6_1, Tooling1_0 -> [ DotNetFramework FrameworkVersion.V4_6; DotNetStandard DotNetStandardVersion.V1_4 ]
+        | DotNetFramework FrameworkVersion.V4_6_1, Tooling2_0 -> [ DotNetFramework FrameworkVersion.V4_6; DotNetStandard DotNetStandardVersion.V2_0 ]
+        | DotNetFramework FrameworkVersion.V4_6_2, Tooling1_0 -> [ DotNetFramework FrameworkVersion.V4_6_1; DotNetStandard DotNetStandardVersion.V1_5 ]
+        | DotNetFramework FrameworkVersion.V4_6_2, Tooling2_0 -> [ DotNetFramework FrameworkVersion.V4_6_1 ]
+        | DotNetFramework FrameworkVersion.V4_6_3, _ -> [ DotNetFramework FrameworkVersion.V4_6_2 ]
+        | DotNetFramework FrameworkVersion.V4_7, _ -> [ DotNetFramework FrameworkVersion.V4_6_3 ]
+        | DotNetFramework FrameworkVersion.V4_7_1, Tooling1_0 -> [ DotNetFramework FrameworkVersion.V4_7; DotNetStandard DotNetStandardVersion.V2_0 ]
+        | DotNetFramework FrameworkVersion.V4_7_1, Tooling2_0 -> [ DotNetFramework FrameworkVersion.V4_7 ]
+        | DotNetFramework FrameworkVersion.V4_7_2, _ -> [ DotNetFramework FrameworkVersion.V4_7_1 ]
+        | DotNetFramework FrameworkVersion.V5_0, _ -> [ DotNetFramework FrameworkVersion.V4_7_2 ]
+        | DNX _, _ -> [ ]
+        | DNXCore _, _ -> [ ]
+        | DotNetStandard DotNetStandardVersion.V1_0, _ -> [  ]
+        | DotNetStandard DotNetStandardVersion.V1_1, _ -> [ DotNetStandard DotNetStandardVersion.V1_0 ]
+        | DotNetStandard DotNetStandardVersion.V1_2, _ -> [ DotNetStandard DotNetStandardVersion.V1_1 ]
+        | DotNetStandard DotNetStandardVersion.V1_3, _ -> [ DotNetStandard DotNetStandardVersion.V1_2 ]
+        | DotNetStandard DotNetStandardVersion.V1_4, _ -> [ DotNetStandard DotNetStandardVersion.V1_3 ]
+        | DotNetStandard DotNetStandardVersion.V1_5, _ -> [ DotNetStandard DotNetStandardVersion.V1_4 ]
+        | DotNetStandard DotNetStandardVersion.V1_6, _ -> [ DotNetStandard DotNetStandardVersion.V1_5 ]
+        | DotNetStandard DotNetStandardVersion.V2_0, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | DotNetCoreApp DotNetCoreAppVersion.V1_0, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | DotNetCoreApp DotNetCoreAppVersion.V1_1, _ -> [ DotNetCoreApp DotNetCoreAppVersion.V1_0 ]
+        | DotNetCoreApp DotNetCoreAppVersion.V2_0, _ -> [ DotNetCoreApp DotNetCoreAppVersion.V1_1;  DotNetStandard DotNetStandardVersion.V2_0 ]
+        | DotNetCoreApp DotNetCoreAppVersion.V2_1, _ -> [ DotNetCoreApp DotNetCoreAppVersion.V1_1;  DotNetStandard DotNetStandardVersion.V2_0 ]
+        | DotNetUnity DotNetUnityVersion.V3_5_Full, _ -> [ ]
+        | DotNetUnity DotNetUnityVersion.V3_5_Subset, _ -> [ ]
+        | DotNetUnity DotNetUnityVersion.V3_5_Micro, _ -> [ ]
+        | DotNetUnity DotNetUnityVersion.V3_5_Web, _ -> [ ]
+        | Silverlight SilverlightVersion.V3, _ -> [ ]
+        | Silverlight SilverlightVersion.V4, _ -> [ Silverlight SilverlightVersion.V3 ]
+        | Silverlight SilverlightVersion.V5, _ -> [ Silverlight SilverlightVersion.V4 ]
+        | Windows WindowsVersion.V8, _ -> [ ]
+        | Windows WindowsVersion.V8_1, _ -> [ Windows WindowsVersion.V8 ]
+        | Windows WindowsVersion.V10, _ -> [ Windows WindowsVersion.V8_1 ]
+        | WindowsPhoneApp WindowsPhoneAppVersion.V8_1, _ -> [ DotNetStandard DotNetStandardVersion.V1_2 ]
+        | WindowsPhone WindowsPhoneVersion.V7, _ -> [ ]
+        | WindowsPhone WindowsPhoneVersion.V7_1, _ -> [ WindowsPhone WindowsPhoneVersion.V7 ]
+        | WindowsPhone WindowsPhoneVersion.V7_5, _ -> [ WindowsPhone WindowsPhoneVersion.V7_1 ]
+        | WindowsPhone WindowsPhoneVersion.V8, _ -> [ WindowsPhone WindowsPhoneVersion.V7_5; DotNetStandard DotNetStandardVersion.V1_0 ]
+        | WindowsPhone WindowsPhoneVersion.V8_1, _ -> [ WindowsPhone WindowsPhoneVersion.V8 ]
+        | Tizen TizenVersion.V3, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
+        | Tizen TizenVersion.V4, _ -> [ DotNetStandard DotNetStandardVersion.V1_6 ]
 
 module FrameworkDetection =
 
@@ -1049,7 +1053,7 @@ type TargetProfileRaw =
 
 [<CustomEquality; CustomComparison>]
 type TargetProfile =
-    { RawTargetProfile : TargetProfileRaw; CompareString : string }
+    { RawTargetProfile : TargetProfileRaw; SdkType : ToolingVersion option; CompareString : string }
     override x.ToString() = x.CompareString
     member x.IsUnsupportedPortable = x.RawTargetProfile.IsUnsupportedPortable
 
@@ -1069,9 +1073,9 @@ module TargetProfile =
         match profile.RawTargetProfile with
         | SinglePlatformP x -> SinglePlatform x
         | PortableProfileP p -> PortableProfile p
-    let OfPlatform p = { RawTargetProfile = p; CompareString = p.ToString() }
-    let SinglePlatform s = OfPlatform (SinglePlatformP s)
-    let PortableProfile s = OfPlatform (PortableProfileP s)
+    let OfPlatform sdkType p = { RawTargetProfile = p; SdkType = sdkType; CompareString = p.ToString() }
+    let SinglePlatform sdkType s = OfPlatform sdkType (SinglePlatformP s)
+    let PortableProfile s = OfPlatform None (PortableProfileP s)
 
 module KnownTargetProfiles =
     // These lists are used primarily when calculating stuff which requires iterating over ALL profiles
@@ -1107,7 +1111,7 @@ module KnownTargetProfiles =
 
     let DotNetFrameworkProfiles =
        DotNetFrameworkIdentifiers
-       |> List.map TargetProfile.SinglePlatform
+       |> List.map (TargetProfile.SinglePlatform None)
 
     let DotNetStandardVersions = [
         DotNetStandardVersion.V1_0
@@ -1122,7 +1126,7 @@ module KnownTargetProfiles =
 
     let DotNetStandardProfiles =
        DotNetStandardVersions
-       |> List.map (DotNetStandard >> TargetProfile.SinglePlatform)
+       |> List.map (DotNetStandard >> TargetProfile.SinglePlatform None)
 
     let DotNetCoreAppVersions = [
         DotNetCoreAppVersion.V1_0
@@ -1140,7 +1144,7 @@ module KnownTargetProfiles =
 
     let DotNetCoreProfiles =
        DotNetCoreAppVersions
-       |> List.map (DotNetCoreApp >> TargetProfile.SinglePlatform)
+       |> List.map (DotNetCoreApp >> TargetProfile.SinglePlatform None)
 
     let WindowsVersions = [
         WindowsVersion.V8
@@ -1150,11 +1154,11 @@ module KnownTargetProfiles =
 
     let WindowsProfiles =
        WindowsVersions
-       |> List.map (Windows >> TargetProfile.SinglePlatform)
+       |> List.map (Windows >> TargetProfile.SinglePlatform None)
 
     let DotNetUnityProfiles =
        DotNetUnityVersions
-       |> List.map (DotNetUnity >> TargetProfile.SinglePlatform)
+       |> List.map (DotNetUnity >> TargetProfile.SinglePlatform None)
 
     let SilverlightVersions = [
         SilverlightVersion.V3
@@ -1164,7 +1168,7 @@ module KnownTargetProfiles =
 
     let SilverlightProfiles =
        SilverlightVersions
-       |> List.map (Silverlight >> TargetProfile.SinglePlatform)
+       |> List.map (Silverlight >> TargetProfile.SinglePlatform None)
 
     let MonoAndroidVersions = [
         MonoAndroidVersion.V1
@@ -1186,7 +1190,7 @@ module KnownTargetProfiles =
 
     let MonoAndroidProfiles =
        MonoAndroidVersions
-       |> List.map (MonoAndroid >> TargetProfile.SinglePlatform)
+       |> List.map (MonoAndroid >> TargetProfile.SinglePlatform None)
 
     let UAPVersons = [
         UAPVersion.V10
@@ -1198,7 +1202,7 @@ module KnownTargetProfiles =
 
     let UAPProfiles =
        UAPVersons
-       |> List.map (UAP >> TargetProfile.SinglePlatform)
+       |> List.map (UAP >> TargetProfile.SinglePlatform None)
 
     let WindowsPhoneVersions = [
         WindowsPhoneVersion.V7
@@ -1210,7 +1214,7 @@ module KnownTargetProfiles =
 
     let WindowsPhoneSilverlightProfiles =
        WindowsPhoneVersions
-       |> List.map (WindowsPhone >> TargetProfile.SinglePlatform)
+       |> List.map (WindowsPhone >> TargetProfile.SinglePlatform None)
 
     let WindowsPhoneAppVersions = [
         WindowsPhoneAppVersion.V8_1
@@ -1218,7 +1222,7 @@ module KnownTargetProfiles =
 
     let WindowsPhoneAppProfiles =
        WindowsPhoneAppVersions
-       |> List.map (WindowsPhoneApp >> TargetProfile.SinglePlatform)
+       |> List.map (WindowsPhoneApp >> TargetProfile.SinglePlatform None)
 
     // http://nugettoolsdev.azurewebsites.net/4.0.0/parse-framework?framework=.NETPortable%2CVersion%3Dv0.0%2CProfile%3DProfile3
     let AllPortableProfiles =
@@ -1276,11 +1280,11 @@ module KnownTargetProfiles =
        SilverlightProfiles @
        WindowsPhoneSilverlightProfiles @
        MonoAndroidProfiles @
-       [TargetProfile.SinglePlatform(MonoTouch)
-        TargetProfile.SinglePlatform(XamariniOS)
-        TargetProfile.SinglePlatform(XamarinMac)
-        TargetProfile.SinglePlatform(XamarinTV)
-        TargetProfile.SinglePlatform(XamarinWatch)] @
+       [TargetProfile.SinglePlatform None MonoTouch
+        TargetProfile.SinglePlatform None XamariniOS
+        TargetProfile.SinglePlatform None XamarinMac
+        TargetProfile.SinglePlatform None XamarinTV
+        TargetProfile.SinglePlatform None XamarinWatch] @
        (AllPortableProfiles |> List.map TargetProfile.PortableProfile)
 
     let AllDotNetStandardAndCoreProfiles =
@@ -1304,7 +1308,7 @@ module KnownTargetProfiles =
           Native(Release,Arm)]
 
     let AllProfiles =
-        (AllNativeProfiles |> List.map TargetProfile.SinglePlatform) @
+        (AllNativeProfiles |> List.map (TargetProfile.SinglePlatform None)) @
           AllDotNetStandardAndCoreProfiles @
           AllDotNetProfiles
         |> Set.ofList
@@ -1330,13 +1334,13 @@ module KnownTargetProfiles =
         | None -> failwithf "tried to find portable profile '%s' but it is unknown to paket" name
 
 module SupportCalculation =
-    let isSupportedNotEqual (portable:PortableProfileType) (other:PortableProfileType) =
+    let isSupportedNotEqual sdkType (portable:PortableProfileType) (other:PortableProfileType) =
         let name, tfs = portable.ProfileName, portable.Frameworks
 
         let otherName, otherfws = other.ProfileName, other.Frameworks
         let weSupport =
             tfs
-            |> List.collect (fun tf -> tf.RawSupportedPlatformsTransitive)
+            |> List.collect (fun tf -> tf.RawSupportedPlatformsTransitive sdkType)
 
         let relevantFrameworks =
             otherfws
@@ -1345,11 +1349,11 @@ module SupportCalculation =
             |> Seq.length
         relevantFrameworks >= tfs.Length && portable <> other
 
-    let getSupported (portable:PortableProfileType) =
+    let getSupported sdkType (portable:PortableProfileType) =
         let name, tfs = portable.ProfileName, portable.Frameworks
         KnownTargetProfiles.AllPortableProfiles
         |> List.filter (fun p -> p.ProfileName <> name)
-        |> List.filter (fun other -> isSupportedNotEqual portable other)
+        |> List.filter (fun other -> isSupportedNotEqual sdkType portable other)
         |> List.map TargetProfile.PortableProfile
     type SupportMap = System.Collections.Concurrent.ConcurrentDictionary<PortableProfileType,PortableProfileType list>
     let ofSeq s = s|> dict |> System.Collections.Concurrent.ConcurrentDictionary
@@ -1392,36 +1396,36 @@ module SupportCalculation =
                     hasChanged <- true
         sup
 
-    let private getSupportedPortables p =
-        getSupported p
+    let private getSupportedPortables sdkType p =
+        getSupported sdkType p
         |> List.choose (function TargetProfile.PortableProfile p -> Some p | _ -> failwithf "Expected portable")
 
-    let createInitialSupportMap () =
+    let createInitialSupportMap sdkType =
         KnownTargetProfiles.AllPortableProfiles
-        |> List.map (fun p -> p, getSupportedPortables p)
+        |> List.map (fun p -> p, getSupportedPortables sdkType p)
         |> ofSeq
 
     let mutable private supportMap: SupportMap option = None
 
-    let private getSupportMap () =
+    let private getSupportMap sdkType =
         match supportMap with
         | Some supportMap ->
             supportMap
         | None ->
-            supportMap <- Some (optimizeSupportMap (createInitialSupportMap()))
+            supportMap <- Some (optimizeSupportMap (createInitialSupportMap sdkType))
             supportMap.Value
 
-    let getSupportedPreCalculated (p:PortableProfileType) =
-        match getSupportMap().TryGetValue p with
+    let getSupportedPreCalculated sdkType (p:PortableProfileType) =
+        match getSupportMap(sdkType).TryGetValue p with
         | true, v -> v
         | _ ->
             match p with
             | UnsupportedProfile tfs ->
-                match getSupportMap().TryGetValue p with
+                match getSupportMap(sdkType).TryGetValue p with
                 | true, v -> v
                 | _ ->
-                    let clone = getSupportMap() |> toSeq |> ofSeq
-                    clone.[p] <- getSupportedPortables p
+                    let clone = getSupportMap sdkType |> toSeq |> ofSeq
+                    clone.[p] <- getSupportedPortables sdkType p
                     let opt = optimizeSupportMap clone
                     let result = opt.[p]
                     supportMap <- Some opt
@@ -1468,12 +1472,12 @@ module SupportCalculation =
             traceWarnfn "The profile '%O' is not a known profile. Please tell the package author." result
         result
 
-    let getSupportedPlatforms x =
-        match x with
+    let getSupportedPlatforms sdkType targetPlatform =
+        match targetPlatform with
         | TargetProfile.SinglePlatform tf ->
             let rawSupported =
-                tf.RawSupportedPlatforms
-                |> List.map TargetProfile.SinglePlatform
+                tf.RawSupportedPlatforms sdkType
+                |> List.map (TargetProfile.SinglePlatform None)
             let profilesSupported =
                 // See https://docs.microsoft.com/en-us/dotnet/articles/standard/library
                 // NOTE: This is explicit in NuGet world (ie users explicitely need to add "imports")
@@ -1537,14 +1541,14 @@ module SupportCalculation =
                 |> List.map TargetProfile.PortableProfile
             rawSupported @ profilesSupported
         | TargetProfile.PortableProfile p ->
-            getSupportedPreCalculated p
+            getSupportedPreCalculated sdkType p
             |> List.map TargetProfile.PortableProfile
         |> Set.ofList
 
-    let getSupportedPlatformsTransitive =
+    let getSupportedPlatformsTransitive sdkType =
         let findNewPlats (known:TargetProfile Set) (lastStep:TargetProfile Set) =
             lastStep
-            |> Seq.map (fun k -> Set.difference (getSupportedPlatforms k) known)
+            |> Seq.map (fun k -> Set.difference (getSupportedPlatforms sdkType k) known)
             |> Set.unionMany
 
         memoize (fun x ->
@@ -1563,26 +1567,26 @@ module SupportCalculation =
         )
 
     /// true when x is supported by y, for example netstandard15 is supported by netcore10
-    let isSupportedBy x y =
+    let isSupportedBy sdkType x y =
         match x with
         | TargetProfile.PortableProfile (PortableProfileType.UnsupportedProfile xs' as x') ->
             // custom profiles are not in our lists -> custom logic
             match y with
             | TargetProfile.PortableProfile y' ->
                 x' = y' ||
-                isSupportedNotEqual y' x'
+                isSupportedNotEqual sdkType y' x'
             | TargetProfile.SinglePlatform y' ->
-                y'.RawSupportedPlatformsTransitive |> Seq.exists (fun y'' ->
+                y'.RawSupportedPlatformsTransitive sdkType |> Seq.exists (fun y'' ->
                     xs' |> Seq.contains y'')
         | _ ->
             x = y ||
-              (getSupportedPlatformsTransitive y |> Set.contains x)
+              (getSupportedPlatformsTransitive sdkType y |> Set.contains x)
 
-    let getPlatformsSupporting =
+    let getPlatformsSupporting sdkType =
         // http://nugettoolsdev.azurewebsites.net
         let calculate (x:TargetProfile) =
             KnownTargetProfiles.AllProfiles
-            |> Set.filter (fun plat -> isSupportedBy x plat)
+            |> Set.filter (fun plat -> isSupportedBy sdkType x plat)
         memoize calculate
 
 type TargetProfile with
@@ -1592,11 +1596,11 @@ type TargetProfile with
         | TargetProfile.PortableProfile p -> p.Frameworks
     static member FindPortable warnWhenUnsupported (fws: _ list) = SupportCalculation.findPortable warnWhenUnsupported fws
 
-    member inline x.PlatformsSupporting = SupportCalculation.getPlatformsSupporting x
+    member inline x.PlatformsSupporting = SupportCalculation.getPlatformsSupporting (x.SdkType |> Option.defaultValue Tooling1_0) x
 
     /// true when x is supported by y, for example netstandard15 is supported by netcore10
     member inline x.IsSupportedBy y =
-        SupportCalculation.isSupportedBy x y
+        SupportCalculation.isSupportedBy (x.SdkType |> Option.defaultValue Tooling1_0) x y
     /// true when x is at least (>=) y ie when y is supported by x, for example netcore10 >= netstandard15 as netstandard15 is supported by netcore10.
     /// Note that this relation is not complete, for example for WindowsPhoneSilverlightv7.0 and Windowsv4.5 both <= and >= are false from this definition as
     /// no platform supports the other.
@@ -1604,11 +1608,11 @@ type TargetProfile with
         y.IsSupportedBy x
 
     /// Get all platforms y for which x >= y holds
-    member inline x.SupportedPlatformsTransitive =
-        SupportCalculation.getSupportedPlatformsTransitive x
+    member inline x.SupportedPlatformsTransitive sdkType =
+        SupportCalculation.getSupportedPlatformsTransitive sdkType x
 
     member inline x.SupportedPlatforms : TargetProfile Set =
-        SupportCalculation.getSupportedPlatforms x
+        SupportCalculation.getSupportedPlatforms (Option.defaultValue Tooling1_0 x.SdkType) x
 
     /// x < y, see y >= x && x <> y
     member inline x.IsSmallerThan y =

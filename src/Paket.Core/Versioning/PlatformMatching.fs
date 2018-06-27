@@ -105,8 +105,8 @@ let rec getPlatformPenalty =
                 | TargetProfile.PortableProfile _, TargetProfile.SinglePlatform _ -> Penalty_Portable + penalty
                 | _ -> penalty)
 
-let getFrameworkPenalty (fr1, fr2) =
-    getPlatformPenalty (TargetProfile.SinglePlatform fr1, TargetProfile.SinglePlatform fr2)
+let getFrameworkPenalty sdkType (fr1, fr2) =
+    getPlatformPenalty (TargetProfile.SinglePlatform sdkType fr1, TargetProfile.SinglePlatform sdkType fr2)
 
 
 let getPathPenalty =

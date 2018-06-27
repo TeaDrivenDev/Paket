@@ -51,7 +51,7 @@ module ``Given a path`` =
     [<Test>]
     let ``it should return no penalty for a matching portable profile``() =
         let path = forceExtractPlatforms "net40+sl4"
-        getFrameworkPathPenalty 
+        getFrameworkPathPenalty
             [ DotNetFramework FrameworkVersion.V4
               Silverlight SilverlightVersion.V4 ] path
         |> shouldEqual 0
@@ -59,7 +59,7 @@ module ``Given a path`` =
     [<Test>]
     let ``it should return 1 for a compatible portable profile``() =
         let path = forceExtractPlatforms "net40+sl4"
-        getFrameworkPathPenalty 
+        getFrameworkPathPenalty
             [ DotNetFramework FrameworkVersion.V4
               Silverlight SilverlightVersion.V5 ] path
         |> shouldEqual (Penalty_VersionJump)
@@ -136,12 +136,11 @@ module ``General Penalty checks`` =
     let ``best match for DotNet Standard 1.0``()=
         Paket.PlatformMatching.findBestMatch (["net20"; "net40"; "net45"; "net451"]|> List.map forceExtractPlatforms, TargetProfile.SinglePlatform(DotNetStandard(DotNetStandardVersion.V1_0)))
         |> shouldEqual (None)
-    
+
     [<Test>]
     let ``prefer net40-client over net35``()=
         Paket.PlatformMatching.findBestMatch (["net20"; "net35"; "net40-client"]|> List.map forceExtractPlatforms, TargetProfile.SinglePlatform(DotNetFramework(FrameworkVersion.V4_5)))
         |> shouldEqual (Some (forceExtractPlatforms "net40-client"))
-
 
     [<Test>]
     let ``best match for DotNet Standard 1.1``()=
@@ -159,7 +158,6 @@ module ``General Penalty checks`` =
           (["netstandard10"; "netstandard11"; "netstandard12"; "netstandard13"; "netstandard14"; "netstandard15"; "netstandard16"]|> List.map forceExtractPlatforms,
            TargetProfile.SinglePlatform(DotNetFramework(FrameworkVersion.V4_5)))
         |> shouldEqual (Some (forceExtractPlatforms "netstandard11"))
-
 
     [<Test>]
     let ``best match for netstandard in portable``()=
